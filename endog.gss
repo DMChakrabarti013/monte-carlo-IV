@@ -1,0 +1,114 @@
+/*Generating Data*/
+storeb2slsn = {};
+storebivn   = {};
+storebolsn = {};
+
+N   = 1000;
+i = 1;
+Do while i .le 100;
+X1  = rndn(N,2);
+X2  = X1 + rndn(N,2);
+X1  = ones(N,1)~X1;
+X = X1~X2;
+
+Phi = 2|2|2|2|2;
+B   = 1|1|1|1;
+v = rndn(N,1);
+Y2  = X*Phi + v;
+R   = X1~Y2;
+u = ( v + rndn(N,1) )/sqrt(2);
+Y1 = R*B +2*u;
+
+
+
+W = X1~X2[.,1];                         @ Leaving a variable out of the Y2-model@
+Phihat = inv(W'W)*W'Y2;                 @EEstimating Incorrect Y2-model to check IV Robustness@
+Z2 = W*Phihat;                          @Instrument@
+Rstar = X1~Z2;                          @Instrument Matrix@
+
+bols  = inv(R'R)*R'Y1 ;    @OLS Estimates@ 
+      
+b2sls = inv(Rstar'Rstar)*Rstar'*Y1 ;    @ Complete: 2SLS using Rstar@
+
+biv   = inv(Rstar'R)*Rstar'Y1 ;    Colplete: @IV  Rstars@
+
+ vhat = Y2 - W*Phihat;      @Complete: Residual from the Y2 model above@
+Rc =   R~vhat;                         @Control  matrix of explanatory variables@
+bc = inv(Rc'Rc)*Rc'Y1;          @Complete: Control Estimates@
+
+If i .eq 100;
+Print "        bols              b2sls             biv             bc";
+
+
+bols~b2sls~biv~bc[1:rows(bc)-1];
+
+
+Print "Endogeneity Test";
+sig2 = (Y1 - R*biv)'(Y1-R*biv)/1000;  @Estimated Error Variance@
+Cov  = sig2*inv(Rc'Rc);               @ Complete: Cov matrix for control estimator @
+SE = sqrt(diag(cov));                 @Vector of Standard Errors@
+SEc = SE[rows(SE)];                   @Standard Error:  Estiamted Control Coefficient@
+c = bc[rows(bc)];                             @Complete: Control coefficient@
+at = abs( c/SEc);         @Compete: Absolute value of t-statistic@
+Pval = 2*(1-cdfn(at)) ;                @Coplete: Pvalue for the endogeneity test@
+Print "         Pval";
+Pval;
+else;
+endif;
+Print " ";
+
+
+
+/*2SLS vs. IV:  Nonlinear Model*/
+B =  ones(5,1);
+R   = X1~Y2~(Y2^2);
+Y1 = R*B +2*u;
+Phihat2 = inv(X'X)*X'(Y2);             @Estimated coefficients from correct Y2-model@
+
+
+
+Z2 = X*Phihat2;                        @Complete: A 2SLS instrument for Y2:  regressing Y2 on X@
+Phihat3 = inv(X'X)*X'(Y2^2);           @Estimeted coefficients:  regressing (Y2^2 on X@
+Z3 = X*Phihat3  ;              @Coplete: A 2SLS instrument for Y2^2: regressing Y2^2 on X@
+Rstar = X1~Z2~Z3 ;                     @Complete: 2SLS instrument Matrix@
+
+bolsn  = inv(R'R)*R'Y1;               @OLS Estimates@      
+b2slsn = inv(Rstar'Rstar)*Rstar'Y1   ;@Complete: A 2SLS Estimates@
+
+
+
+
+Z2star = Z2;                          @Optimal IV instrument for Y2@
+Z3star = Z2.^2;                       @Complte: Optimal IV instrument for Y2^2@
+Rstar = X1~Z2star~Z3star;             @Complete: Optimal IV instrument matrix@
+bivn =  inv(Rstar'R)*Rstar'Y1 ;      @complete:Optimal IV Estimates@
+
+storeb2slsn = storeb2slsn|b2slsn';    @Storing all OLS  Estiamtes@
+storebivn   = storebivn|bivn';        @Storing all 2SLS estimates@
+storebolsn = storebolsn|bolsn';       @Storing all optimal IV estimates@ 
+
+                                   
+
+i = i + 1;                            @incrementing the loop@
+Endo;                                 @end of the loop@
+
+
+
+m1 = median(storebolsn)  ;            @neduan of all replicated OLS estimates@
+m2 = median(storeb2slsn)  ;           @median of all replicated 2SLS estiamtes@
+m3 = median( storebivn)  ;            @aamedian of all replicated optimal IV estimates@
+
+Print" Monte-Carlo Comparison of Estimators for the Nonlinear Case";
+Print "       medols            med2sls          mediv";
+m1~m2~m3;
+
+mad1 = median( abs(storebolsn  - m1'));  @Mad for all replicated OLS estiamtes@
+mad2 = median( abs(storeb2slsn - m2'));  @Mad for all replicated 2SLS estiamtes@
+mad3 = median( abs(storebivn   - m3'));  @Mad for all replciated optimal IV estiamtes@
+Print " ";
+Print "       madols            mad2sls          madiv";
+
+mad1~mad2~mad3;
+
+
+
